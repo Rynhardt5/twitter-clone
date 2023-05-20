@@ -127,10 +127,13 @@ export async function getStaticProps(
 ) {
   const id = context.params?.id;
   if (id == null) return { redirect: { destination: "/" } };
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const ssg = ssgHelper();
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
   await ssg.profile.getById.prefetch({ id });
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
   return { props: { trpcState: ssg.dehydrate(), id } };
 }
 

@@ -26,27 +26,29 @@ export const profileRouter = createTRPCRouter({
 
       if (profile == null) return;
 
+      const isFollowing = profile.followers
+        ? profile.followers.length > 0
+        : false;
+
       return {
         name: profile.name,
         image: profile.image,
         followersCount: profile._count.followers,
         followsCount: profile._count.follows,
         tweetsCount: profile._count.tweets,
-        isFollowing: profile.followers.length > 0,
+        isFollowing,
       };
     }),
 
   toggleFollow: protectedProcedure
     .input(z.object({ userId: z.string() }))
     .mutation(async ({ input: { userId }, ctx }) => {
-      const currentUserId = ctx.session?.user.id;
-      if (currentUserId == null) return;
-
+      const currentUserId = ctx.session.user.id;
       const existingFollow = await ctx.prisma.user.findFirst({
         where: { id: userId, followers: { some: { id: currentUserId } } },
       });
 
-      let addedFollow: boolean;
+      let addedFollow;
       if (existingFollow == null) {
         await ctx.prisma.user.update({
           where: { id: userId },
@@ -61,9 +63,8 @@ export const profileRouter = createTRPCRouter({
         addedFollow = false;
       }
 
-      // Revalidation
-      void ctx.revalidateSSG?.(`/profile/${userId}`);
-      void ctx.revalidateSSG?.(`/profile/${currentUserId}`);
+      void ctx.revalidateSSG?.(`/profiles/${userId}`);
+      void ctx.revalidateSSG?.(`/profiles/${currentUserId}`);
 
       return { addedFollow };
     }),

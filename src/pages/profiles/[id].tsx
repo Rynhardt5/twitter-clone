@@ -1,47 +1,42 @@
-import ErrorPage from "next/error";
-import {
-  type InferGetStaticPropsType,
-  type GetStaticPaths,
-  type GetStaticPropsContext,
-  type NextPage,
+import type {
+  GetStaticPaths,
+  GetStaticPropsContext,
+  InferGetStaticPropsType,
+  NextPage,
 } from "next";
 import Head from "next/head";
 import { ssgHelper } from "~/server/api/ssgHelper";
 import { api } from "~/utils/api";
+import ErrorPage from "next/error";
 import Link from "next/link";
 import { IconHoverEffect } from "~/components/IconHoverEffect";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
+import { useSession } from "next-auth/react";
+import { Button } from "~/components/Button";
 import { ProfileImg } from "~/components/ProfileImg";
 import InfiniteTweetList from "~/components/InfinateTweetList";
-import { Button } from "~/components/Button";
-import { useSession } from "next-auth/react";
-
-const pluralRules = new Intl.PluralRules();
-function getPural(number: number, singular: string, plural: string) {
-  return pluralRules.select(number) === "one" ? singular : plural;
-}
 
 const ProfilePage: NextPage<InferGetStaticPropsType<typeof getStaticProps>> = ({
   id,
 }) => {
-  const trpcUtils = api.useContext();
   const { data: profile } = api.profile.getById.useQuery({ id });
   const tweets = api.tweet.infiniteProfileFeed.useInfiniteQuery(
     { userId: id },
     { getNextPageParam: (lastPage) => lastPage.nextCursor }
   );
+  const trpcUtils = api.useContext();
   const toggleFollow = api.profile.toggleFollow.useMutation({
     onSuccess: (data) => {
       if (data == null) return;
       const { addedFollow } = data;
-      return trpcUtils.profile.getById.setData({ id }, (oldData) => {
+      trpcUtils.profile.getById.setData({ id }, (oldData) => {
         if (oldData == null) return;
 
         const countModifier = addedFollow ? 1 : -1;
         return {
           ...oldData,
-          followersCount: oldData.followersCount + countModifier,
           isFollowing: addedFollow,
+          followersCount: oldData.followersCount + countModifier,
         };
       });
     },
@@ -54,10 +49,10 @@ const ProfilePage: NextPage<InferGetStaticPropsType<typeof getStaticProps>> = ({
   return (
     <>
       <Head>
-        <title>{`Twitter Clone | ${profile.name}`}</title>
+        <title>{`Twitter Clone - ${profile.name}`}</title>
       </Head>
       <header className="sticky top-0 z-10 flex items-center border-b bg-white px-4 py-2">
-        <Link href=".." className="mr-2 ">
+        <Link href=".." className="mr-2">
           <IconHoverEffect>
             <ArrowLeftIcon className="h-6 w-6" />
           </IconHoverEffect>
@@ -67,9 +62,9 @@ const ProfilePage: NextPage<InferGetStaticPropsType<typeof getStaticProps>> = ({
           <h1 className="text-lg font-bold">{profile.name}</h1>
           <div className="text-gray-500">
             {profile.tweetsCount}{" "}
-            {getPural(profile.tweetsCount, "Tweet", "Tweets")} -{" "}
+            {getPlural(profile.tweetsCount, "Tweet", "Tweets")} -{" "}
             {profile.followersCount}{" "}
-            {getPural(profile.followersCount, "Follower", "Followers")} -{" "}
+            {getPlural(profile.followersCount, "Follower", "Followers")} -{" "}
             {profile.followsCount} Following
           </div>
         </div>
@@ -94,25 +89,32 @@ const ProfilePage: NextPage<InferGetStaticPropsType<typeof getStaticProps>> = ({
 };
 
 function FollowButton({
-  isLoading,
-  isFollowing,
   userId,
+  isFollowing,
+  isLoading,
   onClick,
 }: {
-  isLoading?: boolean;
-  isFollowing: boolean;
   userId: string;
+  isFollowing: boolean;
+  isLoading: boolean;
   onClick: () => void;
 }) {
   const session = useSession();
-  if (session.status !== "authenticated" || session.data.user.id === userId)
+
+  if (session.status !== "authenticated" || session.data.user.id === userId) {
     return null;
+  }
 
   return (
-    <Button onClick={onClick} small gray={isFollowing} disabled={isLoading}>
+    <Button disabled={isLoading} onClick={onClick} small gray={isFollowing}>
       {isFollowing ? "Unfollow" : "Follow"}
     </Button>
   );
+}
+
+const pluralRules = new Intl.PluralRules();
+function getPlural(number: number, singular: string, plural: string) {
+  return pluralRules.select(number) === "one" ? singular : plural;
 }
 
 export const getStaticPaths: GetStaticPaths = () => {
@@ -137,7 +139,7 @@ export async function getStaticProps(
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const ssg = ssgHelper();
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
   await ssg.profile.getById.prefetch({ id });
 
   return {

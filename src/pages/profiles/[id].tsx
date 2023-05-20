@@ -23,7 +23,6 @@ function getPural(number: number, singular: string, plural: string) {
 
 const ProfilePage: NextPage<InferGetStaticPropsType<typeof getStaticProps>> = ({
   id,
-  trpcState,
 }) => {
   const trpcUtils = api.useContext();
   const { data: profile } = api.profile.getById.useQuery({ id });
@@ -32,8 +31,10 @@ const ProfilePage: NextPage<InferGetStaticPropsType<typeof getStaticProps>> = ({
     { getNextPageParam: (lastPage) => lastPage.nextCursor }
   );
   const toggleFollow = api.profile.toggleFollow.useMutation({
-    onSuccess: ({ addedFollow }: { addedFollow: boolean }) =>
-      trpcUtils.profile.getById.setData({ id }, (oldData) => {
+    onSuccess: (data) => {
+      if (data == null) return;
+      const { addedFollow } = data;
+      return trpcUtils.profile.getById.setData({ id }, (oldData) => {
         if (oldData == null) return;
 
         const countModifier = addedFollow ? 1 : -1;
@@ -42,7 +43,8 @@ const ProfilePage: NextPage<InferGetStaticPropsType<typeof getStaticProps>> = ({
           followersCount: oldData.followersCount + countModifier,
           isFollowing: addedFollow,
         };
-      }),
+      });
+    },
   });
 
   if (profile == null || profile.name == null) {
